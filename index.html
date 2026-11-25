@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#20243a">
+<title>Sesli Hikâye Okuyucu</title>
+<style>
+:root{--bg:#f4f5fb;--panel:#fff;--text:#20243a;--muted:#6b7087;--accent:#6558d3;--highlight:#fff0a8;--line:#e4e6f0}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:#20243a;color:white;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+header h1{font-size:1.15rem;margin:0}header small{color:#c7c9da}
+main{max-width:1000px;margin:22px auto;padding:0 14px;display:grid;grid-template-columns:300px 1fr;gap:18px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 5px 22px #22243a0a}
+h2{font-size:1rem;margin:0 0 12px}label{display:block;font-weight:600;font-size:.9rem;margin:12px 0 6px}
+input[type=text],textarea,select{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--panel);color:var(--text)}
+textarea{min-height:190px;resize:vertical}
+button,.filebutton{border:0;border-radius:11px;padding:11px 14px;background:var(--accent);color:white;font:600 .95rem system-ui;cursor:pointer}
+button.secondary,.filebutton.secondary{background:#ecebfb;color:#3f368f}
+button:disabled{opacity:.45;cursor:not-allowed}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.filebutton{display:inline-block}
+input[type=file]{display:none}
+.rangeRow{display:flex;align-items:center;gap:10px}.rangeRow input{flex:1}
+.status{font-size:.85rem;color:var(--muted);margin-top:10px;min-height:1.3em}
+.reader{min-height:520px;display:flex;flex-direction:column}
+.readerTop{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:12px}
+.readerText{font-family:Georgia,"Times New Roman",serif;font-size:1.28rem;line-height:2.05;white-space:pre-wrap;overflow-wrap:anywhere;padding:20px 4px;flex:1}
+.readerText .active{background:#ffd84d;color:#24202a;border-radius:4px;box-shadow:0 0 0 2px #ffd84d;padding:0 1px;font-weight:700}
+.readerText .part{display:block;margin:0 0 18px;padding:5px 10px;border-left:3px solid transparent;border-radius:6px}.readerText .part.sentence{background:transparent;border-left-color:#6558d3;box-shadow:0 0 0 1px #d8d3ff}.readerText .englishLine{display:block}.readerText .sentence .englishLine{font-weight:400}.wordToken{white-space:pre-wrap}.wordToken.active{background:#ffd84d;color:#24202a;border-radius:4px;box-shadow:0 0 0 2px #ffd84d;padding:0 1px;font-weight:700}.readerText .sentence .translation{background:transparent}.englishLine{display:block}.translation{display:block;font:500 .82em/1.45 system-ui,sans-serif;color:var(--muted);margin:0 0 15px 0;padding-left:10px;border-left:3px solid var(--accent)}
+.tip{color:var(--muted);font-size:.83rem}
+footer{text-align:center;color:var(--muted);font-size:.8rem;padding:18px}
+body.dark{--bg:#171925;--panel:#222536;--text:#f1f2fb;--muted:#b2b5c8;--line:#383b50;--highlight:#63521a}
+body.dark button.secondary{background:#38344f;color:#e5e1ff}body.dark .readerText .part.sentence{background:transparent;border-left-color:#c5b6ff;box-shadow:0 0 0 1px #5a5478}body.dark .readerText .sentence .translation{background:transparent}body.dark .translation{color:#c5c8dc}
+@media(max-width:760px){main{grid-template-columns:1fr;margin:12px auto}.reader{min-height:420px}.readerText{font-size:1.18rem;padding:14px 0}header{padding:14px}}
+
+/* Persistent playback dock: controls remain reachable while reading long stories */
+.readerTop .controls{
+ position:fixed;left:50%;bottom:calc(12px + env(safe-area-inset-bottom));
+ transform:translateX(-50%);z-index:1000;
+ width:min(560px,calc(100vw - 28px));margin:0!important;
+ padding:10px;gap:8px;display:flex;flex-wrap:nowrap;justify-content:center;
+ background:var(--panel);border:1px solid var(--line);border-radius:16px;
+ box-shadow:0 8px 30px #11142b35;
+}
+.readerTop .controls button{flex:1;min-width:0;min-height:48px;padding:12px 10px;touch-action:manipulation}
+.readerText{padding-bottom:125px}
+#readerText{ -webkit-tap-highlight-color:transparent; }
+@media(max-width:760px){
+ .readerTop .controls{width:calc(100vw - 16px);bottom:calc(8px + env(safe-area-inset-bottom));padding:8px;gap:6px;border-radius:14px}
+ .readerTop .controls button{font-size:.9rem;min-height:52px;padding:12px 6px}
+ .readerText{padding-bottom:140px}
+}
+
+
+.appNav{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:14px 12px 0}
+.appNav .navBtn{background:transparent;color:var(--text);border:1px solid var(--line);border-radius:999px}
+.appNav .navBtn.active{background:var(--accent);color:white;border-color:var(--accent)}
+.curriculumView{max-width:1000px;margin:18px auto;padding:0 14px}
+.curriculumHeader{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+.curriculumHeader h2{margin:0 0 4px}.curriculumHeader p{margin:0}
+.curriculumTools,.wordTools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.inlineLabel{display:flex;gap:8px;align-items:center;font-size:.9rem}
+.inlineLabel select,.wordTools select{padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text)}
+.storyLibrary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.durationGroup{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
+.durationGroup h3{font-size:.95rem;margin:0 0 10px}
+.storySlot{display:flex;align-items:center;gap:8px;width:100%;margin:7px 0;text-align:left;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:10px;border-radius:10px;font-weight:500}
+.storySlot small{display:block;color:var(--muted);font-size:.75rem}
+.storySlot .slotNum{font-weight:700;color:var(--accent);min-width:22px}
+.wordTools{margin:0 0 14px}.wordTools input{flex:1;min-width:180px;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text)}
+.wordList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.wordCard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.wordCard h3{margin:0;font-size:1.05rem}.wordCard p{margin:3px 0;color:var(--muted)}
+.wordCard details{margin-top:8px}.wordCard li{margin:8px 0}.wordCard .wordMeta{font-size:.78rem}
+.addWord{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.addWord summary{cursor:pointer;font-weight:700}.formGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.formGrid label{margin:8px 0}.formGrid input{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text)}
+.studyCard{max-width:650px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px;text-align:center}
+.studyCard h2{font-size:2rem;margin:14px 0 4px}.studyMeaning{font-size:1.2rem;color:var(--muted)}
+.studyExamples{text-align:left;margin:18px 0}.studyExamples p{padding:10px;border-bottom:1px solid var(--line)}
+@media(max-width:760px){.storyLibrary{grid-template-columns:1fr}.wordList{grid-template-columns:1fr}.formGrid{grid-template-columns:1fr}.curriculumHeader{padding:14px}.curriculumView{margin:12px auto}}
+
+
+.driveControls{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.driveControls label{font-size:.8rem;margin:0;min-width:260px}
+.driveControls input{display:block;width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text)}
+#driveSyncPanel{margin-top:14px}
+
+</style>
+</head>
+<body>
+<header><div><h1>📚 Sesli Hikâye Okuyucu</h1><small>Hikâyeni ekle, dinle ve metni takip et.</small></div><button class="secondary" id="themeBtn">🌙 Gece modu</button></header>
+
+
+<section id="driveSyncPanel" class="curriculumView">
+  <div class="curriculumHeader">
+    <div><h2>☁️ Kaldığım yerden devam et</h2>
+      <p class="tip">İlerleme dosyan kişisel Google Drive hesabındaki gizli uygulama alanında tutulur.</p>
+    </div>
+    <div class="driveControls">
+      <label>Google OAuth Client ID
+        <input id="googleClientId" type="text" placeholder="Google Cloud OAuth Client ID">
+      </label>
+      <button id="connectDriveBtn">Google Drive'a bağlan</button>
+      <button id="syncDriveBtn" class="secondary" disabled>İlerlemeyi eşitle</button>
+      <button id="disconnectDriveBtn" class="secondary" disabled>Bağlantıyı kes</button>
+    </div>
+    <p class="tip" id="driveStatus" role="status">Önce Google OAuth Client ID girip bağlan. Bu ayar yalnızca bu tarayıcıda saklanır.</p>
+  </div>
+</section>
+
+<nav class="appNav" aria-label="Uygulama bölümleri">
+  <button class="navBtn active" data-view="storiesView">📖 Hikâyeler</button>
+  <button class="navBtn" data-view="readerView">🎧 Okuyucu</button>
+  <button class="navBtn" data-view="wordsView">🧠 Önemli Kelimeler</button>
+  <button class="navBtn" data-view="studyView">✍️ Kelime Çalışması</button>
+</nav>
+<section id="storiesView" class="curriculumView">
+  <div class="curriculumHeader">
+    <div><h2>Hikâye kütüphanesi</h2><p class="tip">Her seviyede 2, 4 ve 6 dakikalık beşer hikâye. Toplam 15 hikâye.</p></div>
+    <div class="curriculumTools"><label class="inlineLabel">Seviye <select id="levelFilter"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></label>
+    <button id="exportContentBtn" class="secondary">İçeriği dışa aktar</button><label class="filebutton secondary" for="importContentFile">JSON içe aktar</label><input id="importContentFile" type="file" accept=".json,application/json"></div>
+  </div>
+  <div id="storyLibrary" class="storyLibrary"></div>
+  <p class="tip">Bir hikâye kartına tıklayarak okuyucuya yükleyebilirsin. Henüz boş olan kartlar içerik hazırlama alanıdır.</p>
+</section>
+<section id="wordsView" class="curriculumView" hidden>
+  <div class="curriculumHeader"><div><h2>Önemli kelimeler</h2><p class="tip">Kelime aynı hikâyelerde tekrar seçilse bile listede tek kayıt olarak tutulur.</p></div></div>
+  <div class="wordTools"><input id="wordSearch" type="text" placeholder="Kelime veya Türkçe anlam ara…"><select id="wordLevelFilter"><option value="all">Tüm seviyeler</option><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></div>
+  <div id="wordList" class="wordList"></div>
+  <details class="addWord"><summary>Yeni önemli kelime ekle</summary>
+    <div class="formGrid"><label>İngilizce kelime<input id="newWord" type="text"></label><label>Türkçe anlamı<input id="newMeaning" type="text"></label><label>Seviye<select id="newWordLevel"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></label><label>Hikâye başlığı<input id="newWordStory" type="text" placeholder="Kelimenin geçtiği hikâye"></label></div>
+    <label>5 örnek cümle (her satır: English | Türkçe)</label><textarea id="newWordExamples" placeholder="I have a blue bag. | Mavi bir çantam var.&#10;..."></textarea>
+    <button id="addWordBtn">Kelimeyi kaydet</button>
+  </details>
+</section>
+<section id="studyView" class="curriculumView" hidden>
+  <div class="curriculumHeader"><div><h2>Kelime çalışması</h2><p class="tip">Kaydettiğin önemli kelimeleri ve örnek cümleleri tekrar et.</p></div></div>
+  <div class="studyCard"><div class="tip" id="studyCounter">Kelime kartı</div><h2 id="studyWord">Kelime eklediğinde burada görünecek</h2><p id="studyMeaning" class="studyMeaning"></p><button id="showExamplesBtn" class="secondary">Örnek cümleleri göster</button><div id="studyExamples" class="studyExamples" hidden></div><div class="controls"><button id="prevStudyBtn" class="secondary">← Önceki</button><button id="nextStudyBtn">Sonraki →</button></div></div>
+</section>
+
+<div id="readerView" hidden>
+<main>
+<section class="panel">
+<h2>Hikâyeni ekle</h2>
+<label for="storyTitle">Hikâye başlığı</label><input id="storyTitle" type="text" placeholder="Hikâyemin adı">
+<label for="storyInput">Metin</label><textarea id="storyInput" placeholder="İngilizce hikâyeni buraya yapıştır..."></textarea>
+<div class="controls"><button id="loadBtn">Metni okuyucuya aktar</button><label class="filebutton secondary" for="fileInput">Metin / Word dosyası aç</label><input id="fileInput" type="file" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></div>
+<label for="voiceSelect">Ses</label><select id="voiceSelect"><option>Sesler yükleniyor...</option></select>
+<label for="speed">Okuma hızı <span id="speedValue">0.65×</span></label><div class="rangeRow"><input id="speed" type="range" min=".25" max="1.2" step=".05" value=".65"></div>
+<div class="controls"><button id="saveBtn" class="secondary">Hikâyeyi kaydet</button><button id="clearBtn" class="secondary">Temizle</button></div>
+<div class="controls"><button id="retryTranslationBtn" class="secondary" type="button">Türkçe çevirileri yeniden dene</button></div><div class="status" id="status" role="status">İngilizce hikâyeni ekleyerek başlayabilirsin.</div>
+<p class="tip">TXT dosyaları doğrudan açılır. Word (.docx) dosyası içe aktarmak için internet bağlantısı gerekir. İngilizce sesler cihazın/tarayıcının sunduğu seslerdir.</p>
+</section>
+<section class="panel reader">
+<div class="readerTop"><div><strong id="displayTitle">Hikâye okuyucu</strong><div class="tip" id="progress">Henüz metin yok</div><div class="tip" id="followTip">Takip: her okunan kelime ayrı ayrı sarı renkle vurgulanır. Metne dokunarak duraklat / devam et; devamda kaldığın kelimeden başlar.</div></div><div class="controls" style="margin:0"><button id="playBtn" disabled>▶ Oku</button><button id="pauseBtn" class="secondary" disabled>⏸ Duraklat</button><button id="stopBtn" class="secondary" disabled>■ Durdur</button></div></div>
+<div id="readerText" class="readerText">Hikâyeni sol taraftan eklediğinde burada görünecek. Okuma sırasında takip edilen bölüm vurgulanır.</div>
+<div class="tip">Not: Devam etme, tarayıcı takılmalarını azaltmak için kaldığın kelimeden yeniden başlatır; kelimeyi kısa tekrar edebilir.</div>
+</section>
+</main>
+</div>
+<footer>Tarayıcı tabanlı • Telefon, tablet ve bilgisayar uyumlu</footer>
+<script>
+const $=id=>document.getElementById(id);
+let story="",title="",parts=[],translations=[],current=0,playing=false,paused=false,voices=[],activeUtterance=null,wordTimer=null,wordTimerStart=0,wordTimerElapsed=0,wordTimerPausedAt=0,boundarySeen=false,currentWordIndex=0,resumeWordIndex=0;
+const synth=window.speechSynthesis;
+function setStatus(t){$("status").textContent=t}
+function loadVoices(){
+ voices=synth?synth.getVoices():[];
+ const select=$("voiceSelect");select.innerHTML="";
+ const english=voices.filter(v=>v.lang.toLowerCase().startsWith("en"));
+ if(!english.length){select.add(new Option(voices.length?"İngilizce ses bulunamadı — varsayılan ses":"Sesler yükleniyor…",""));return}
+ english.forEach(v=>select.add(new Option(v.name+" ("+v.lang+")",String(voices.indexOf(v)))));
+ const preferred=english.find(v=>v.lang.toLowerCase()==="en-us")||english.find(v=>v.lang.toLowerCase()==="en-gb")||english[0];
+ if(preferred)select.value=String(voices.indexOf(preferred));
+}
+if(synth){loadVoices();synth.onvoiceschanged=loadVoices}
+function splitSentences(text){
+ const arr=text.match(/[^.!?…]+[.!?…]*|[\s\S]+$/g)||[];
+ return arr.filter(x=>x.length);
+}
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function render(){
+ const html=parts.map((p,i)=>{
+   const tokens=p.match(/\s+|[^\s]+/g)||[];
+   let wordIndex=0;
+   const wordHtml=tokens.map(token=>{
+     if(/^\s+$/.test(token))return escapeHtml(token);
+     return `<span class="wordToken" data-word="${wordIndex++}">${escapeHtml(token)}</span>`;
+   }).join("");
+   return `<span class="part" data-part="${i}"><span class="englishLine">${wordHtml}</span><span class="translation" data-translation="${i}">${escapeHtml(translations[i]||"Türkçe çeviri hazırlanıyor…")}</span></span>`;
+ }).join("");
+ $("readerText").innerHTML=html||"Hikâyeni eklediğinde burada görünecek.";
+ $("displayTitle").textContent=title||"Hikâye okuyucu";
+ updateProgress();
+}
+function updateProgress(){$("progress").textContent=parts.length?`Bölüm ${Math.min(current+1,parts.length)} / ${parts.length}`:"Henüz metin yok"}
+function setActive(partIndex,wordIndex=0){
+ const nodes=$("readerText").querySelectorAll("[data-part]");
+ nodes.forEach(n=>n.classList.remove("sentence"));
+ const node=nodes[partIndex];if(!node)return;
+ node.classList.add("sentence");
+ node.querySelectorAll(".wordToken").forEach(w=>w.classList.remove("active"));
+ const words=node.querySelectorAll(".wordToken");
+ if(words.length){
+   const idx=Math.max(0,Math.min(Number(wordIndex)||0,words.length-1));
+   words[idx].classList.add("active");
+ }
+ node.scrollIntoView({block:"center",behavior:"smooth"});
+}
+let fallbackAnchorWord=0,fallbackAnchorTime=0;
+function startWordFallback(partIndex,utteranceText,rate,baseWordIndex=0){
+ clearInterval(wordTimer);
+ boundarySeen=false;wordTimerElapsed=0;wordTimerPausedAt=0;wordTimerStart=Date.now();
+ fallbackAnchorWord=baseWordIndex;fallbackAnchorTime=Date.now();
+ const node=$("readerText").querySelector(`[data-part="${partIndex}"]`);
+ const words=node?Array.from(node.querySelectorAll(".wordToken")):[];
+ if(!words.length)return;
+ // Faster estimate to compensate for speech synthesis starting ahead of visual boundary events.
+ // Native word-boundary events reset this anchor whenever the engine provides them.
+ const msPerWord=260/Math.max(.25,rate);
+ wordTimer=setInterval(()=>{
+   if(!playing||paused||!activeUtterance||synth.paused)return;
+   const elapsed=Date.now()-fallbackAnchorTime;
+   const estimatedAdvance=Math.floor(elapsed/msPerWord);
+   const idx=Math.min(words.length-1,Math.max(fallbackAnchorWord,fallbackAnchorWord+estimatedAdvance));
+   if(idx>currentWordIndex){
+     currentWordIndex=idx;
+     setActive(partIndex,currentWordIndex);
+   }
+ },60);
+}
+function updateFallbackAnchor(wordIndex){
+ boundarySeen=true;
+ fallbackAnchorWord=Math.max(0,wordIndex);
+ fallbackAnchorTime=Date.now();
+}
+function stopWordFallback(){if(wordTimer){clearInterval(wordTimer);wordTimer=null}}
+
+async function translateOne(text){
+ const encoded=encodeURIComponent(text.trim());
+ let firstError=null;
+ // Primary: Google Translate's public web endpoint (no API key).
+ try{
+   const url=`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=tr&dt=t&q=${encoded}`;
+   const response=await fetch(url,{method:"GET",mode:"cors",cache:"no-store"});
+   if(!response.ok)throw new Error("Google Translate HTTP "+response.status);
+   const data=await response.json();
+   const result=(data?.[0]||[]).map(row=>row?.[0]||"").join("").trim();
+   if(result)return result;
+   throw new Error("Google Translate boş yanıt verdi");
+ }catch(e){firstError=e}
+ // Backup: MyMemory. Some networks/browsers block this service, so it is only fallback.
+ try{
+   const url=`https://api.mymemory.translated.net/get?q=${encoded}&langpair=en|tr`;
+   const response=await fetch(url,{method:"GET",mode:"cors",cache:"no-store"});
+   if(!response.ok)throw new Error("MyMemory HTTP "+response.status);
+   const data=await response.json();
+   const result=data?.responseData?.translatedText;
+   if(result&&data?.responseStatus!==403)return result;
+   throw new Error("MyMemory çeviri yanıtı geçersiz");
+ }catch(e){
+   throw new Error((firstError?.message||"Birinci çeviri servisi başarısız")+"; yedek servis de başarısız: "+(e?.message||"bağlantı hatası"));
+ }
+}
+async function translateParts(){
+ if(!parts.length){setStatus("Önce İngilizce hikâyeyi okuyucuya aktar.");return}
+ const button=$("retryTranslationBtn");if(button)button.disabled=true;
+ translations=parts.map(()=> "");
+ render();
+ let failed=0;
+ setStatus("Çeviri servisine bağlanılıyor…");
+ for(let i=0;i<parts.length;i++){
+   try{
+     translations[i]=await translateOne(parts[i]);
+   }catch(e){
+     failed++;
+     translations[i]="Çeviri servisine ulaşılamadı. Yeniden dene.";
+   }
+   const span=$("readerText").querySelector(`[data-translation="${i}"]`);
+   if(span)span.textContent=translations[i];
+   setStatus(`Türkçe çeviri hazırlanıyor: ${i+1}/${parts.length}`);
+   // Gentle pacing to avoid triggering public translation-service limits.
+   if(i<parts.length-1)await new Promise(resolve=>setTimeout(resolve,180));
+ }
+ if(button)button.disabled=false;
+ if(failed===0)setStatus("Türkçe çeviriler tamamlandı.");
+ else setStatus(`${parts.length-failed}/${parts.length} cümle çevrildi. ${failed} cümle için çeviri servisi yanıt vermedi. İnternetin açık olsa da servis erişimi/CORS/limit nedeniyle başarısız olabilir; “Türkçe çevirileri yeniden dene” düğmesine bas.`);
+}
+function controls(on){$("playBtn").disabled=!on;$("pauseBtn").disabled=!on;$("stopBtn").disabled=!on}
+function selectedVoice(){const i=$("voiceSelect").value;return i===""?null:voices[Number(i)]}
+function speakCurrent(){
+ if(!("speechSynthesis" in window)||!window.SpeechSynthesisUtterance){
+   setStatus("Bu tarayıcı seslendirmeyi desteklemiyor. Güncel Chrome, Edge veya Safari deneyin.");playing=false;controls(false);return
+ }
+ if(current>=parts.length){
+   stopWordFallback();playing=false;paused=false;activeUtterance=null;controls(false);setStatus("Hikâye tamamlandı. 🌟");return
+ }
+ if(!voices.length)loadVoices();
+ const node=$("readerText").querySelector(`[data-part="${current}"]`);
+ const wordNodes=node?Array.from(node.querySelectorAll(".wordToken")):[];
+ const base=Math.max(0,Math.min(resumeWordIndex,Math.max(0,wordNodes.length-1)));
+ currentWordIndex=base;
+ const fullText=parts[current];
+ const remainingText=wordNodes.slice(base).map(w=>w.textContent).join(" ").trim()||fullText;
+ const utter=new SpeechSynthesisUtterance(remainingText);activeUtterance=utter;
+ const voice=selectedVoice();if(voice)utter.voice=voice;
+ utter.lang=voice?voice.lang:"en-US";utter.rate=Number($("speed").value);
+ utter.onstart=()=>{
+   if(activeUtterance!==utter)return;
+   playing=true;paused=false;controls(true);setActive(current,currentWordIndex);updateProgress();
+   setStatus("Seslendiriliyor — kelimeler sırayla vurgulanır.");
+   startWordFallback(current,remainingText,utter.rate,base);
+ };
+ utter.onboundary=e=>{
+   if(activeUtterance!==utter||typeof e.charIndex!=="number")return;
+   if(e.name==="word"){
+     const prefix=remainingText.slice(0,e.charIndex);
+     const relative=(prefix.match(/\S+/g)||[]).length;
+     currentWordIndex=Math.min(base+relative,Math.max(0,wordNodes.length-1));
+     setActive(current,currentWordIndex);
+     updateFallbackAnchor(currentWordIndex);
+   }
+ };
+ utter.onend=()=>{
+   if(activeUtterance!==utter)return;
+   stopWordFallback();activeUtterance=null;
+   current++;resumeWordIndex=0;currentWordIndex=0;updateProgress();
+   if(playing&&!paused)speakCurrent();
+ };
+ utter.onerror=e=>{
+   if(activeUtterance!==utter)return;
+   stopWordFallback();
+   if(e.error==="canceled"||e.error==="interrupted")return;
+   setStatus("Seslendirme hatası: "+e.error);
+ };
+ try{synth.speak(utter)}catch(err){
+   setStatus("Ses başlatılamadı. Sayfayı yenileyin veya farklı tarayıcı deneyin.");playing=false;activeUtterance=null
+ }
+}
+function pausePlayback(){
+ if(!playing||paused)return;
+ resumeWordIndex=currentWordIndex;
+ paused=true;playing=true;stopWordFallback();
+ if(synth)synth.cancel();
+ activeUtterance=null;
+ setStatus("Duraklatıldı. Devam düğmesine basınca kaldığın kelimeden tekrar başlayacak.");
+}
+function resumePlayback(){
+ if(!paused)return;
+ paused=false;playing=true;
+ if(synth)synth.cancel();
+ activeUtterance=null;
+ speakCurrent();
+}
+$("retryTranslationBtn").onclick=()=>translateParts();
+$("loadBtn").onclick=()=>{
+ const text=$("storyInput").value.trim();if(!text){setStatus("Lütfen önce hikâye metnini ekle.");return}
+ stop();story=text;title=$("storyTitle").value.trim()||"İsimsiz hikâye";parts=splitSentences(story);translations=[];current=0;render();controls(true);setStatus("Hikâye hazır. Türkçe çeviriler hazırlanıyor…");translateParts().then(()=>setStatus("Hikâye ve Türkçe çeviriler hazır. ▶ Oku düğmesine basabilirsin."));
+};
+$("fileInput").onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{
+   let text="";
+   if(file.name.toLowerCase().endsWith(".docx")){
+     setStatus("Word dosyası okunuyor...");
+     if(!window.mammoth){
+       await new Promise((resolve,reject)=>{
+         const s=document.createElement("script");
+         s.src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js";
+         s.onload=resolve;s.onerror=()=>reject(new Error("Word içe aktarma kütüphanesi yüklenemedi."));
+         document.head.appendChild(s);
+       });
+     }
+     const arrayBuffer=await file.arrayBuffer();
+     const result=await mammoth.extractRawText({arrayBuffer});
+     text=result.value||"";
+   }else{
+     text=await file.text();
+   }
+   $("storyInput").value=text;
+   if(!$("storyTitle").value)$("storyTitle").value=file.name.replace(/\.(txt|docx)$/i,"");
+   setStatus("Dosya açıldı. Metni okuyucuya aktarmayı unutma.");
+ }catch(err){
+   setStatus(err.message||"Dosya okunamadı. Word dosyası için internet bağlantısı gerekebilir.");
+ }finally{e.target.value=""}
+};
+$("playBtn").onclick=()=>{
+ if(!parts.length){$("loadBtn").click();if(!parts.length)return}
+ if(paused){resumePlayback();return}
+ if(!playing){loadVoices();playing=true;resumeWordIndex=currentWordIndex||0;speakCurrent()}
+};
+$("pauseBtn").onclick=pausePlayback;
+
+// On phone/tablet, tap the story area to pause or continue.
+$("readerText").addEventListener("click",()=>{
+ if(paused){resumePlayback();return}
+ if(playing)pausePlayback();
+});
+
+function stop(){stopWordFallback();if(synth)synth.cancel();playing=false;paused=false;activeUtterance=null;resumeWordIndex=0;currentWordIndex=0}
+$("stopBtn").onclick=()=>{stop();controls(parts.length>0);setStatus("Okuma durduruldu.")};
+$("saveBtn").onclick=()=>{
+ if(!story){setStatus("Önce metni okuyucuya aktar.");return}
+ try{localStorage.setItem("storyReaderSaved",JSON.stringify({title,story}));setStatus("Hikâye bu tarayıcıya kaydedildi.")}
+ catch(e){setStatus("Tarayıcıda kayıt yapılamadı. Metni bir .txt dosyasında saklayabilirsin.")}
+};
+$("clearBtn").onclick=()=>{stop();story="";title="";parts=[];translations=[];current=0;resumeWordIndex=0;currentWordIndex=0;$("storyInput").value="";$("storyTitle").value="";render();controls(false);setStatus("Temizlendi.")};
+$("speed").oninput=e=>$("speedValue").textContent=Number(e.target.value).toFixed(1)+"×";
+$("themeBtn").onclick=()=>{document.body.classList.toggle("dark");$("themeBtn").textContent=document.body.classList.contains("dark")?"☀️ Gündüz modu":"🌙 Gece modu"};
+try{const saved=JSON.parse(localStorage.getItem("storyReaderSaved")||"null");if(saved){$("storyTitle").value=saved.title||"";$("storyInput").value=saved.story||"";setStatus("Önceki hikâyen bulundu. Metni okuyucuya aktarmak için düğmeye bas.")}}catch(e){}
+
+// Curriculum content model: story entries and a deduplicated vocabulary bank.
+const CONTENT_KEY="storyReaderCurriculum_v1";
+let curriculum={stories:[],words:[]};
+try{const saved=JSON.parse(localStorage.getItem(CONTENT_KEY)||"null");if(saved&&Array.isArray(saved.stories)&&Array.isArray(saved.words))curriculum=saved}catch(e){}
+function saveCurriculum(){try{localStorage.setItem(CONTENT_KEY,JSON.stringify(curriculum))}catch(e){}}
+function normWord(w){return String(w||"").trim().toLocaleLowerCase("en-US").replace(/[.,!?;:]+$/,"")}
+function safeText(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function renderLibrary(){
+ const level=$("levelFilter").value, root=$("storyLibrary");root.innerHTML="";
+ [2,4,6].forEach(min=>{
+  const group=document.createElement("div");group.className="durationGroup";
+  group.innerHTML=`<h3>${min} dakikalık hikâyeler <span class="tip">• 5 hikâye</span></h3>`;
+  for(let n=1;n<=5;n++){
+   const item=curriculum.stories.find(s=>s.level===level&&Number(s.duration)===min&&Number(s.slot)===n);
+   const b=document.createElement("button");b.className="storySlot";
+   b.innerHTML=`<span class="slotNum">${n}.</span><span>${item?safeText(item.title):`Hikâye ${n}`}<small>${item?`${item.wordCount||item.text.split(/\s+/).filter(Boolean).length} kelime · hazır`:"İçerik henüz eklenmedi"}</small></span>`;
+   b.addEventListener("click",()=>{
+    if(item){$("storyTitle").value=item.title;$("storyInput").value=item.text;setStatus(`${level} · ${min} dakika: “${item.title}” okuyucuya yüklendi.`);$("loadBtn").click();switchView("readerView")}
+    else{$("storyTitle").value=`${level} · ${min} dakika · Hikâye ${n}`;$("storyInput").focus();setStatus(`${level} için ${min} dakikalık ${n}. hikâye alanı seçildi. Metni ekleyip “Metni okuyucuya aktar” düğmesine bas.`);switchView("readerView")}
+   });
+   group.appendChild(b);
+  }
+  root.appendChild(group);
+ });
+}
+function renderWords(){
+ const q=normWord($("wordSearch").value),lev=$("wordLevelFilter").value,root=$("wordList");root.innerHTML="";
+ const items=curriculum.words.filter(w=>(lev==="all"||w.level===lev)&&(!q||normWord(w.word).includes(q)||String(w.meaning).toLowerCase().includes(q)));
+ if(!items.length){root.innerHTML='<div class="panel">Henüz kelime eklenmedi. “Yeni önemli kelime ekle” bölümünden kelimelerini ekleyebilir veya içerik JSON dosyasını içe aktarabilirsin.</div>';return}
+ items.forEach(w=>{
+  const card=document.createElement("article");card.className="wordCard";
+  const stories=[...new Set(w.stories||[])];
+  const examples=(w.examples||[]).map((e,i)=>`<li><strong>${safeText(e.en)}</strong><br><span class="tip">${safeText(e.tr)}</span></li>`).join("");
+  card.innerHTML=`<h3>${safeText(w.word)}</h3><p>${safeText(w.meaning)} · ${safeText(w.level)}</p><div class="wordMeta tip">Hikâyeler: ${stories.length?safeText(stories.join(", ")):"Henüz ilişkilendirilmedi"}</div><details><summary>Örnek cümleler (${(w.examples||[]).length})</summary><ol>${examples}</ol></details>`;
+  root.appendChild(card);
+ });
+}
+let studyIndex=0,showStudyExamples=false;
+function renderStudy(){
+ const words=curriculum.words;if(!words.length){$("studyWord").textContent="Henüz kelime yok";$("studyMeaning").textContent="Önemli Kelimeler bölümünden kelime ekleyin."; $("studyCounter").textContent="0 kelime";$("studyExamples").hidden=true;return}
+ studyIndex=Math.max(0,Math.min(studyIndex,words.length-1));const w=words[studyIndex];
+ $("studyCounter").textContent=`${studyIndex+1} / ${words.length} · ${w.level}`;$("studyWord").textContent=w.word;$("studyMeaning").textContent=w.meaning;
+ $("studyExamples").innerHTML=(w.examples||[]).map(e=>`<p><strong>${safeText(e.en)}</strong><br><span class="tip">${safeText(e.tr)}</span></p>`).join("");
+ $("studyExamples").hidden=!showStudyExamples;
+}
+function switchView(id){
+ ["readerView","storiesView","wordsView","studyView"].forEach(v=>{const el=$(v);if(el)el.hidden=v!==id});
+ document.querySelectorAll(".navBtn").forEach(b=>b.classList.toggle("active",b.dataset.view===id));
+ if(id==="storiesView")renderLibrary();if(id==="wordsView")renderWords();if(id==="studyView")renderStudy();
+}
+document.querySelectorAll(".navBtn").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.view)));
+$("levelFilter").addEventListener("change",renderLibrary);$("wordSearch").addEventListener("input",renderWords);$("wordLevelFilter").addEventListener("change",renderWords);
+$("addWordBtn").addEventListener("click",()=>{
+ const word=$("newWord").value.trim(),meaning=$("newMeaning").value.trim();if(!word||!meaning){alert("Kelime ve Türkçe anlamını girin.");return}
+ const examples=$("newWordExamples").value.split(/\n/).map(line=>{const a=line.split("|");return {en:(a[0]||"").trim(),tr:(a.slice(1).join("|")||"").trim()}}).filter(e=>e.en);
+ const level=$("newWordLevel").value,storyName=$("newWordStory").value.trim();
+ let existing=curriculum.words.find(w=>normWord(w.word)===normWord(word));
+ if(existing){if(!existing.stories)existing.stories=[];if(storyName&&!existing.stories.includes(storyName))existing.stories.push(storyName);if(!existing.examples.length&&examples.length)existing.examples=examples;if(existing.meaning!==meaning&&meaning)existing.meaning=meaning}
+ else curriculum.words.push({word,meaning,level,stories:storyName?[storyName]:[],examples});
+ saveCurriculum();["newWord","newMeaning","newWordStory","newWordExamples"].forEach(id=>$(id).value="");renderWords();setStatus(`“${word}” kelime listesine kaydedildi.`);
+});
+$("showExamplesBtn").addEventListener("click",()=>{showStudyExamples=!showStudyExamples;renderStudy()});
+$("prevStudyBtn").addEventListener("click",()=>{studyIndex=(studyIndex-1+curriculum.words.length)%Math.max(1,curriculum.words.length);renderStudy()});
+$("nextStudyBtn").addEventListener("click",()=>{studyIndex=(studyIndex+1)%Math.max(1,curriculum.words.length);renderStudy()});
+$("exportContentBtn").addEventListener("click",()=>{
+ const blob=new Blob([JSON.stringify(curriculum,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="english_story_curriculum.json";a.click();URL.revokeObjectURL(url);
+});
+$("importContentFile").addEventListener("change",async e=>{
+ const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.stories)||!Array.isArray(data.words))throw new Error("JSON içeriğinde stories ve words dizileri olmalı.");
+ curriculum=data;saveCurriculum();renderLibrary();renderWords();renderStudy();setStatus("İçerik başarıyla içe aktarıldı.");}catch(err){alert("JSON dosyası okunamadı: "+err.message)}e.target.value="";
+});
+// When the existing reader loads a story, also register it in the selected curriculum slot if desired.
+// Library slots are intentionally not auto-filled from arbitrary imported text.
+renderLibrary();
+
+
+// Google Drive personal progress sync (no app-owned server).
+// Drive appDataFolder keeps the progress file hidden from the user's ordinary Drive file list.
+const DRIVE_CLIENT_KEY="storyReaderGoogleClientId";
+const DRIVE_FILE_NAME="EnglishStoryProgress.json";
+let driveToken=null,driveFileId=null,driveTokenClient=null;
+function driveStatus(t){const el=$("driveStatus");if(el)el.textContent=t}
+function driveClientId(){return $("googleClientId").value.trim()}
+function collectProgress(){
+ return {schema:1,updatedAt:new Date().toISOString(),title,story,part:current,word:currentWordIndex,resumeWord:resumeWordIndex,
+   translations,speed:Number($("speed").value),savedStory:JSON.parse(localStorage.getItem("storyReaderSaved")||"null"),
+   curriculum:curriculum};
+}
+function saveProgressLocal(){
+ try{localStorage.setItem("storyReaderProgress_v1",JSON.stringify(collectProgress()))}catch(e){}
+}
+function setDriveConnected(on){
+ $("syncDriveBtn").disabled=!on;$("disconnectDriveBtn").disabled=!on;
+ $("connectDriveBtn").textContent=on?"Drive bağlı ✓":"Google Drive'a bağlan";
+}
+function ensureGoogleIdentity(){
+ return new Promise((resolve,reject)=>{
+  if(window.google?.accounts?.oauth2){resolve();return}
+  const s=document.createElement("script");s.src="https://accounts.google.com/gsi/client";
+  s.onload=()=>window.google?.accounts?.oauth2?resolve():reject(new Error("Google kimlik kütüphanesi yüklenemedi."));
+  s.onerror=()=>reject(new Error("Google kimlik hizmetine ulaşılamadı."));document.head.appendChild(s);
+ });
+}
+async function getDriveToken(){
+ if(driveToken)return driveToken;
+ const clientId=driveClientId();
+ if(!clientId){throw new Error("Önce Google OAuth Client ID girin.")}
+ await ensureGoogleIdentity();
+ return new Promise((resolve,reject)=>{
+  driveTokenClient=google.accounts.oauth2.initTokenClient({client_id:clientId,scope:"https://www.googleapis.com/auth/drive.appdata",
+   callback:resp=>{if(resp.error){reject(new Error(resp.error_description||resp.error));return}driveToken=resp.access_token;resolve(driveToken)},
+   error_callback:err=>reject(new Error(err.message||"Google giriş penceresi açılamadı."))});
+  driveTokenClient.requestAccessToken({prompt:"consent"});
+ });
+}
+async function driveRequest(url,options={}){
+ const token=await getDriveToken();
+ const headers=new Headers(options.headers||{});headers.set("Authorization","Bearer "+token);
+ const response=await fetch(url,{...options,headers});
+ if(response.status===401){driveToken=null;throw new Error("Google oturumu sona erdi. Drive'a yeniden bağlanın.")}
+ if(!response.ok){const txt=await response.text();throw new Error("Drive API "+response.status+": "+txt.slice(0,240))}
+ return response;
+}
+async function findDriveProgress(){
+ const q=encodeURIComponent("name='"+DRIVE_FILE_NAME+"' and trashed=false");
+ const res=await driveRequest("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q="+q+"&fields=files(id,name,modifiedTime)");
+ const data=await res.json();return data.files?.[0]||null;
+}
+async function uploadDriveProgress(){
+ const data=collectProgress();const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+ const existing=driveFileId?{id:driveFileId}:await findDriveProgress();
+ const metadata=existing?{}:{name:DRIVE_FILE_NAME,parents:["appDataFolder"]};
+ const boundary="----storyreader"+Math.random().toString(16).slice(2);
+ const body="--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+JSON.stringify(metadata)+"\r\n--"+boundary+"\r\nContent-Type: application/json\r\n\r\n"+JSON.stringify(data)+"\r\n--"+boundary+"--";
+ const url=existing
+  ?"https://www.googleapis.com/upload/drive/v3/files/"+existing.id+"?uploadType=multipart"
+  :"https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
+ const res=await driveRequest(url,{method:existing?"PATCH":"POST",headers:{"Content-Type":"multipart/related; boundary="+boundary},body});
+ const result=await res.json();driveFileId=result.id;saveProgressLocal();return result;
+}
+async function downloadDriveProgress(){
+ const file=driveFileId?{id:driveFileId}:await findDriveProgress();
+ if(!file){driveStatus("Drive'da ilerleme dosyası bulunamadı. Önce bu cihazdaki ilerlemeyi eşitleyin.");return false}
+ driveFileId=file.id;
+ const res=await driveRequest("https://www.googleapis.com/drive/v3/files/"+file.id+"?alt=media");
+ const data=await res.json();
+ if(!data||data.schema!==1)throw new Error("Drive ilerleme dosyası beklenen biçimde değil.");
+ if(data.curriculum&&Array.isArray(data.curriculum.words)&&Array.isArray(data.curriculum.stories)){
+  curriculum=data.curriculum;saveCurriculum();renderLibrary();renderWords();renderStudy();
+ }
+ if(data.title&&data.story){
+  stop();title=data.title;story=data.story;parts=splitSentences(story);translations=Array.isArray(data.translations)?data.translations:[];
+  current=Math.max(0,Math.min(Number(data.part)||0,Math.max(0,parts.length-1)));
+  currentWordIndex=Math.max(0,Number(data.word)||0);resumeWordIndex=Math.max(0,Number(data.resumeWord)||currentWordIndex);
+  $("storyTitle").value=title;$("storyInput").value=story;$("speed").value=String(data.speed||.65);$("speedValue").textContent=Number($("speed").value).toFixed(1)+"×";
+  render();controls(parts.length>0);setActive(current,currentWordIndex);
+  if(translations.length!==parts.length){translations=parts.map(()=> "Türkçe çeviri yükleniyor…");render();translateParts()}
+  switchView("readerView");
+ }else if(data.savedStory){$("storyTitle").value=data.savedStory.title||"";$("storyInput").value=data.savedStory.story||""}
+ saveProgressLocal();return true;
+}
+
+let driveSaveTimer=null;
+function scheduleDriveSave(){
+ saveProgressLocal();
+ if(!driveToken)return;
+ if(driveSaveTimer)clearTimeout(driveSaveTimer);
+ driveSaveTimer=setTimeout(async()=>{
+  try{await uploadDriveProgress();driveStatus("İlerlemen Drive'a otomatik kaydedildi.");}
+  catch(e){driveStatus("Otomatik Drive kaydı bekliyor: "+e.message+" — eşitle düğmesine basabilirsin.")}
+ },12000);
+}
+
+$("googleClientId").value=localStorage.getItem(DRIVE_CLIENT_KEY)||"";
+$("googleClientId").addEventListener("change",()=>{localStorage.setItem(DRIVE_CLIENT_KEY,driveClientId());driveToken=null});
+$("connectDriveBtn").addEventListener("click",async()=>{
+ try{localStorage.setItem(DRIVE_CLIENT_KEY,driveClientId());await getDriveToken();setDriveConnected(true);driveStatus("Drive bağlantısı kuruldu. Son ilerleme aranıyor…");
+   const found=await downloadDriveProgress();if(found)driveStatus("Drive'daki ilerleme yüklendi. Kaldığın yerden devam edebilirsin.");else driveStatus("Bağlandın. İlk ilerleme kaydını eşitlemek için düğmeye bas.");
+ }catch(e){driveStatus("Bağlantı kurulamadı: "+e.message)}
+});
+$("syncDriveBtn").addEventListener("click",async()=>{
+ try{driveStatus("Drive ile eşitleniyor…");const file=await findDriveProgress();
+   if(!file){await uploadDriveProgress();driveStatus("İlk ilerleme kaydı Drive'a yüklendi.");return}
+   // If this device has a local progress record, ask before replacing it with cloud state.
+   const local=JSON.parse(localStorage.getItem("storyReaderProgress_v1")||"null");
+   if(local&&local.updatedAt&&new Date(local.updatedAt)>new Date(file.modifiedTime||0)){
+    await uploadDriveProgress();driveStatus("Bu cihazdaki daha yeni ilerleme Drive'a kaydedildi.");
+   }else{await downloadDriveProgress();driveStatus("Drive'daki son ilerleme bu cihaza yüklendi.")}
+ }catch(e){driveStatus("Eşitleme başarısız: "+e.message)}
+});
+$("disconnectDriveBtn").addEventListener("click",()=>{if(driveToken&&window.google?.accounts?.oauth2)google.accounts.oauth2.revoke(driveToken,()=>{});driveToken=null;driveFileId=null;setDriveConnected(false);driveStatus("Drive bağlantısı kesildi. Yerel kayıtların korunuyor.")});
+// Save locally whenever progress changes; sync to Drive at explicit request to avoid surprising overwrites.
+const originalSetActive=setActive;
+setActive=function(partIndex,wordIndex=0){originalSetActive(partIndex,wordIndex);scheduleDriveSave()};
+const originalPausePlayback=pausePlayback;
+pausePlayback=function(){originalPausePlayback();scheduleDriveSave()};
+const originalResumePlayback=resumePlayback;
+resumePlayback=function(){originalResumePlayback();saveProgressLocal()};
+$("speed").addEventListener("change",scheduleDriveSave);
+window.addEventListener("beforeunload",saveProgressLocal);
+$("loadBtn").addEventListener("click",()=>{setTimeout(scheduleDriveSave,300)});
+$("stopBtn").addEventListener("click",scheduleDriveSave);
+try{const localProgress=JSON.parse(localStorage.getItem("storyReaderProgress_v1")||"null");if(localProgress&&localProgress.title&&localProgress.story&&!story){title=localProgress.title;story=localProgress.story;$("storyTitle").value=title;$("storyInput").value=story;setStatus("Yerel ilerleme bulundu. Drive'a bağlanıp eşitleyebilir veya metni okuyucuya aktarabilirsin.")}}catch(e){}
+
+</script>
+</body>
+</html>
