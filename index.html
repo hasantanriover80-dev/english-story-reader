@@ -523,14 +523,16 @@ async function getDriveToken(){
   driveTokenClient=google.accounts.oauth2.initTokenClient({client_id:clientId,scope:"https://www.googleapis.com/auth/drive.appdata",
    callback:resp=>{if(resp.error){reject(new Error(resp.error_description||resp.error));return}driveToken=resp.access_token;resolve(driveToken)},
    error_callback:err=>reject(new Error(err.message||"Google giriş penceresi açılamadı."))});
-  driveTokenClient.requestAccessToken({prompt:"consent"});
+  // Reuse the user's existing consent. A fresh short-lived access token is requested
+  // when the user clicks Connect again; no repeated consent prompt is forced.
+  driveTokenClient.requestAccessToken({prompt:""});
  });
 }
 async function driveRequest(url,options={}){
  const token=await getDriveToken();
  const headers=new Headers(options.headers||{});headers.set("Authorization","Bearer "+token);
  const response=await fetch(url,{...options,headers});
- if(response.status===401){driveToken=null;throw new Error("Google oturumu sona erdi. Drive'a yeniden bağlanın.")}
+ if(response.status===401){driveToken=null;throw new Error("Google erişim anahtarının süresi dolmuş. Google Drive'a bağlan düğmesine basıp anahtarı yenileyin.")}
  if(!response.ok){const txt=await response.text();throw new Error("Drive API "+response.status+": "+txt.slice(0,240))}
  return response;
 }
@@ -580,7 +582,7 @@ function scheduleDriveSave(){
  if(driveSaveTimer)clearTimeout(driveSaveTimer);
  driveSaveTimer=setTimeout(async()=>{
   try{await uploadDriveProgress();driveStatus("İlerlemen Drive'a otomatik kaydedildi.");}
-  catch(e){driveStatus("Otomatik Drive kaydı bekliyor: "+e.message+" — eşitle düğmesine basabilirsin.")}
+  catch(e){driveStatus("Drive kaydı bekliyor: "+e.message)}
  },12000);
 }
 
